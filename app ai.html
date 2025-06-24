@@ -14,6 +14,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- SheetJS (XLSX) for Excel Export/Import -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Marked.js for Markdown to HTML -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
     <style>
         body { font-family: 'Cairo', sans-serif; background-color: #f8fafc; }
@@ -26,17 +28,6 @@
         .file-input-button { cursor: pointer; display: inline-block; padding: 0.5rem 1rem; }
         .dropdown-menu { display: none; }
         .dropdown-menu.is-active { display: block; }
-        .hidden-transition {
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-10px);
-            transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
-        }
-        .visible-transition {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0);
-        }
     </style>
 </head>
 <body class="text-stone-800">
@@ -63,12 +54,16 @@
     <div id="app" class="min-h-screen hidden">
         <!-- Header -->
         <header class="bg-white shadow-sm sticky top-0 z-40">
-            <nav class="container mx-auto px-4 py-3 flex justify-between items-center flex-wrap gap-3">
+            <nav class="container mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
                 <h1 class="text-2xl font-bold text-cyan-700">النظام المحاسبي</h1>
+                <!-- Main navigation buttons -->
+                <div class="flex flex-wrap justify-center gap-2">
+                     <button id="show-dashboard-btn" class="px-3 py-2 text-sm font-semibold rounded-md">لوحة التحكم</button>
+                     <button id="show-transactions-btn" class="px-3 py-2 text-sm font-semibold rounded-md">إدارة العمليات</button>
+                     <button id="show-book-report-btn" class="px-3 py-2 text-sm font-semibold rounded-md">تقرير الكتب</button>
+                </div>
+                <!-- Action buttons -->
                 <div class="flex items-center space-x-2 rtl:space-x-reverse">
-                    <button id="show-dashboard-btn" class="px-3 py-1 rounded-md">لوحة التحكم</button>
-                    <button id="show-transactions-btn" class="px-3 py-1 rounded-md">إدارة العمليات</button>
-                    <button id="show-book-report-btn" class="px-3 py-1 rounded-md">تقرير الكتب</button>
                     <button id="settings-btn" title="الإعدادات" class="px-3 py-2 rounded-lg hover:bg-stone-100"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
                     <div id="add-op-dropdown" class="relative">
                         <button id="add-op-dropdown-btn" class="bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 shadow-md flex items-center gap-2">+ إضافة عملية <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button>
@@ -84,33 +79,39 @@
         <!-- Main Content -->
         <main class="container mx-auto p-4 md:p-6">
              <!-- Filter Bar -->
-            <div class="bg-white p-3 rounded-xl shadow-lg mb-6">
-                <div class="flex items-center gap-2 md:gap-4 flex-wrap">
-                    <label for="date-filter" class="font-bold">عرض تقرير:</label>
-                    <select id="date-filter" class="p-2 border border-stone-300 rounded-lg">
-                        <option value="all_time" selected>كل الوقت</option>
-                        <option value="this_month">هذا الشهر</option>
-                        <option value="last_month">الشهر الماضي</option>
-                        <option value="last_3_months">آخر 3 أشهر</option>
-                        <option value="this_year">هذه السنة</option>
-                        <option value="last_year">السنة الماضية</option>
-                        <option value="custom">فترة مخصصة</option>
-                    </select>
-                    <button id="export-btn" title="تصدير التقرير الحالي إلى Excel" class="px-3 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
-                    <label for="import-file" title="استيراد بيانات جديدة" class="file-input-button px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></label>
-                    <input type="file" id="import-file" class="hidden" accept=".xlsx, .xls">
-                    <button id="analyze-report-btn" title="الحصول على تحليل ذكي للتقرير الحالي" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:from-purple-600 hover:to-indigo-700 shadow-md transition-all">
+            <div class="bg-white p-4 rounded-xl shadow-lg mb-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:flex lg:flex-wrap lg:items-center lg:gap-4 gap-y-4">
+                    <div class="flex items-center gap-2">
+                        <label for="date-filter" class="font-bold whitespace-nowrap">عرض تقرير:</label>
+                        <select id="date-filter" class="p-2 border border-stone-300 rounded-lg w-full">
+                            <option value="all_time" selected>كل الوقت</option>
+                            <option value="this_month">هذا الشهر</option>
+                            <option value="last_month">الشهر الماضي</option>
+                            <option value="last_3_months">آخر 3 أشهر</option>
+                            <option value="this_year">هذه السنة</option>
+                            <option value="last_year">السنة الماضية</option>
+                            <option value="custom">فترة مخصصة</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                         <button id="export-btn" title="تصدير التقرير الحالي إلى Excel" class="p-2 rounded-lg bg-green-600 text-white hover:bg-green-700"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                         <label for="import-file" title="استيراد بيانات جديدة" class="file-input-button p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></label>
+                         <input type="file" id="import-file" class="hidden" accept=".xlsx, .xls">
+                    </div>
+                     
+                    <button id="analyze-report-btn" title="الحصول على تحليل ذكي للتقرير الحالي" class="sm:col-span-2 md:col-span-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:from-purple-600 hover:to-indigo-700 shadow-md transition-all">
                         ✨
                         <span>تحليل ذكي</span>
                     </button>
                 </div>
                  <!-- Custom Date Range Picker -->
-                <div id="custom-date-range" class="hidden-transition mt-4 space-y-3 md:space-y-0 md:flex md:items-center md:gap-4">
+                <div id="custom-date-range" class="mt-4 space-y-3 md:space-y-0 md:flex md:items-center md:gap-4" style="display: none;">
                     <div>
                         <label for="start-date" class="block text-sm font-medium text-stone-600">من تاريخ:</label>
                         <input type="date" id="start-date" class="p-2 border border-stone-300 rounded-lg w-full md:w-auto">
                     </div>
-                     <div>
+                    <div>
                         <label for="end-date" class="block text-sm font-medium text-stone-600">إلى تاريخ:</label>
                         <input type="date" id="end-date" class="p-2 border border-stone-300 rounded-lg w-full md:w-auto">
                     </div>
@@ -119,25 +120,25 @@
 
             <div id="dashboard-view">
                  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                     <div class="bg-white p-6 rounded-xl shadow-lg border-r-4 border-green-500"><h3 class="text-stone-500 text-lg">إجمالي الأرباح (طباعة)</h3><p id="total-credit" class="text-3xl font-black text-green-600 mt-2">0.00</p></div>
-                     <div class="bg-white p-6 rounded-xl shadow-lg border-r-4 border-red-500"><h3 class="text-stone-500 text-lg">إجمالي المسحوبات</h3><p id="total-debit" class="text-3xl font-black text-red-600 mt-2">0.00</p></div>
-                     <div class="bg-white p-6 rounded-xl shadow-lg border-r-4 border-cyan-500"><h3 class="text-stone-500 text-lg">الرصيد النهائي للحساب</h3><p id="final-balance" class="text-3xl font-black text-cyan-600 mt-2">0.00</p></div>
+                      <div class="bg-white p-6 rounded-xl shadow-lg border-r-4 border-green-500"><h3 class="text-stone-500 text-lg">إجمالي الأرباح (طباعة)</h3><p id="total-credit" class="text-3xl font-black text-green-600 mt-2">0.00</p></div>
+                      <div class="bg-white p-6 rounded-xl shadow-lg border-r-4 border-red-500"><h3 class="text-stone-500 text-lg">إجمالي المسحوبات</h3><p id="total-debit" class="text-3xl font-black text-red-600 mt-2">0.00</p></div>
+                      <div class="bg-white p-6 rounded-xl shadow-lg border-r-4 border-cyan-500"><h3 class="text-stone-500 text-lg">الرصيد النهائي للحساب</h3><p id="final-balance" class="text-3xl font-black text-cyan-600 mt-2">0.00</p></div>
                  </div>
                  <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
-                     <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-lg"><h3 class="font-bold text-xl mb-4">ملخص الأرباح والمسحوبات</h3><canvas id="balance-chart"></canvas></div>
-                     <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg"><h3 class="font-bold text-xl mb-4">أهم الكتب (حسب الأرباح)</h3><canvas id="top-items-chart"></canvas></div>
+                      <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-lg"><h3 class="font-bold text-xl mb-4">ملخص الأرباح والمسحوبات</h3><canvas id="balance-chart"></canvas></div>
+                      <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg"><h3 class="font-bold text-xl mb-4">أهم الكتب (حسب الأرباح)</h3><canvas id="top-items-chart"></canvas></div>
                  </div>
             </div>
 
             <div id="transactions-view" class="hidden">
-                 <div class="bg-white p-6 rounded-xl shadow-lg">
+                 <div class="bg-white p-4 md:p-6 rounded-xl shadow-lg">
                     <h2 class="text-2xl font-bold mb-4">سجل العمليات للفترة المحددة</h2>
                     <div class="overflow-x-auto"><table class="w-full text-right"><thead class="bg-stone-100"><tr><th class="p-3">التاريخ</th><th class="p-3">البيان</th><th class="p-3">النوع</th><th class="p-3">له (أرباح)</th><th class="p-3">عليه (مسحوبات)</th><th class="p-3">إجراءات</th></tr></thead><tbody id="transactions-table-body"></tbody></table></div>
                  </div>
             </div>
             
             <div id="book-report-view" class="hidden">
-                <div class="bg-white p-6 rounded-xl shadow-lg">
+                <div class="bg-white p-4 md:p-6 rounded-xl shadow-lg">
                    <h2 class="text-2xl font-bold mb-4">تقرير كميات الكتب المطبوعة</h2>
                    <div class="mb-4">
                         <label for="book-search" class="font-bold mr-2">ابحث عن كتاب:</label>
@@ -172,16 +173,16 @@
     <div id="analysis-modal" class="modal fixed inset-0 bg-black bg-opacity-60 items-center justify-center p-4 z-50">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 relative">
             <button class="close-modal-btn absolute top-4 left-4 text-stone-500 hover:text-red-600 text-3xl leading-none">&times;</button>
-            <div id="analysis-content-wrapper">
+            <div id="analysis-content-wrapper" class="max-h-[80vh] overflow-y-auto">
                  <h3 class="text-2xl font-bold mb-4 text-purple-700 flex items-center gap-3">
-                    <svg class="w-8 h-8" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-1.2 0-2.4.6-3 1.7A3.5 3.5 0 0 0 5 8.5c0 1.4.8 2.6 2 3.2V21a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-9.3c1.2-.6 2-1.8 2-3.2A3.5 3.5 0 0 0 15 5c-.6-1.1-1.8-1.7-3-1.7Z"/><path d="m14 14-2 2-2-2"/></svg>
-                    <span>تحليل التقرير الذكي</span>
-                </h3>
-                <div id="analysis-loader" class="text-center py-10">
-                    <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-purple-600 mx-auto"></div>
-                    <p class="mt-4 text-stone-600">يقوم الذكاء الاصطناعي بتحليل بياناتك... الرجاء الانتظار.</p>
-                </div>
-                <div id="analysis-result" class="hidden prose prose-lg max-w-none text-right prose-headings:text-stone-800 prose-headings:font-bold prose-li:marker:text-purple-500"></div>
+                     <svg class="w-8 h-8" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-1.2 0-2.4.6-3 1.7A3.5 3.5 0 0 0 5 8.5c0 1.4.8 2.6 2 3.2V21a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-9.3c1.2-.6 2-1.8 2-3.2A3.5 3.5 0 0 0 15 5c-.6-1.1-1.8-1.7-3-1.7Z"/><path d="m14 14-2 2-2-2"/></svg>
+                     <span>تحليل التقرير الذكي</span>
+                 </h3>
+                 <div id="analysis-loader" class="text-center py-10">
+                     <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-purple-600 mx-auto"></div>
+                     <p class="mt-4 text-stone-600">يقوم الذكاء الاصطناعي بتحليل بياناتك... الرجاء الانتظار.</p>
+                 </div>
+                 <div id="analysis-result" class="hidden prose prose-lg max-w-none text-right prose-headings:text-stone-800 prose-headings:font-bold prose-li:marker:text-purple-500 prose-a:text-cyan-600"></div>
             </div>
             <div class="flex justify-end gap-4 pt-4 mt-4 border-t">
                 <button type="button" class="cancel-btn bg-stone-200 py-2 px-6 rounded-lg hover:bg-stone-300">إغلاق</button>
@@ -343,8 +344,8 @@
                 let chatHistory = [];
                 chatHistory.push({ role: "user", parts: [{ text: prompt }] });
                 const payload = { contents: chatHistory };
-                const apiKey = "AIzaSyDUCp9vhp5JMw_1rA14GnJS5Ab5NN_vf0M"; // API Key updated here
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                 const apiKey = "AIzaSyDUCp9vhp5JMw_1rA14GnJS5Ab5NN_vf0M";
+                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
                 const response = await fetch(apiUrl, {
                     method: 'POST',
@@ -367,7 +368,8 @@
                      console.error("Unexpected API response structure:", result);
                 }
                 
-                resultDiv.innerHTML = analysisText;
+                // Use marked.js to parse markdown to HTML
+                resultDiv.innerHTML = marked.parse(analysisText);
 
             } catch (error) {
                 console.error('Error fetching from Gemini API:', error);
@@ -390,7 +392,8 @@
                     }
                     allOperations[index] = updatedOp;
                 } else {
-                    alert("خطأ في التعديل: لم يتم العثور على العملية الأصلية.");
+                    // Replaced alert with a less intrusive notification if needed
+                    console.error("خطأ في التعديل: لم يتم العثور على العملية الأصلية.");
                     return; 
                 }
             } else {
@@ -408,14 +411,30 @@
         };
 
         const addItem = (itemName) => {
-            if (!itemName?.trim()) return alert("اسم الكتاب لا يمكن أن يكون فارغاً.");
-            if (allItems.some(item => item.name.trim().toLowerCase() === itemName.trim().toLowerCase())) return alert("هذا الكتاب موجود بالفعل.");
-            allItems.push({ id: `ITEM_${new Date().getTime()}`, name: itemName.trim(), totalQuantity: 0, totalAmount: 0 });
-            saveData();
-            alert('تمت إضافة الكتاب بنجاح!');
-            closeModal(app.modals.item);
-            app.forms.item.reset();
-            populateItemsDropdown();
+             const trimmedName = itemName?.trim();
+             if (!trimmedName) return showCustomAlert("خطأ", "اسم الكتاب لا يمكن أن يكون فارغاً.");
+             if (allItems.some(item => item.name.trim().toLowerCase() === trimmedName.toLowerCase())) return showCustomAlert("خطأ", "هذا الكتاب موجود بالفعل.");
+             
+             allItems.push({ id: `ITEM_${new Date().getTime()}`, name: trimmedName, totalQuantity: 0, totalAmount: 0 });
+             saveData();
+             showCustomAlert("نجاح", 'تمت إضافة الكتاب بنجاح!', 'success');
+             closeModal(app.modals.item);
+             app.forms.item.reset();
+             populateItemsDropdown();
+        };
+        
+        // A simple, non-blocking alert substitute
+        const showCustomAlert = (title, message, type = 'error') => {
+            const color = type === 'success' ? 'bg-green-600' : 'bg-red-600';
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `fixed top-5 right-5 ${color} text-white py-3 px-5 rounded-lg shadow-xl animate-fade-in-down z-[101]`;
+            alertDiv.innerHTML = `<strong>${title}:</strong> ${message}`;
+            document.body.appendChild(alertDiv);
+            setTimeout(() => {
+                alertDiv.style.transition = 'opacity 0.5s ease';
+                alertDiv.style.opacity = '0';
+                setTimeout(() => alertDiv.remove(), 500);
+            }, 3000);
         };
 
         // --- UI Rendering ---
@@ -593,7 +612,7 @@
                 case 'custom':
                     startDate = new Date($('#start-date').value);
                     endDate = new Date($('#end-date').value);
-                    if (isNaN(startDate) || isNaN(endDate)) return [];
+                    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return [];
                     endDate.setHours(23, 59, 59, 999);
                     break;
                 default: return allOperations;
@@ -607,11 +626,9 @@
 
         const handleDateFilterChange = () => {
             if (app.dateFilter.value === 'custom') {
-                app.customDateRange.classList.remove('hidden-transition');
-                app.customDateRange.classList.add('visible-transition');
+                app.customDateRange.style.display = 'flex';
             } else {
-                app.customDateRange.classList.add('hidden-transition');
-                app.customDateRange.classList.remove('visible-transition');
+                app.customDateRange.style.display = 'none';
             }
             refreshFilteredUI();
         };
@@ -632,8 +649,8 @@
                 openModal(modal);
             };
 
-            $('#open-add-print-modal-btn').addEventListener('click', () => openModalAction(app.modals.print, app.forms.print, '#print-modal-title', '#print-date'));
-            $('#open-add-withdrawal-modal-btn').addEventListener('click', () => openModalAction(app.modals.withdrawal, app.forms.withdrawal, '#withdrawal-modal-title', '#withdrawal-date'));
+            $('#open-add-print-modal-btn').addEventListener('click', (e) => { e.preventDefault(); openModalAction(app.modals.print, app.forms.print, '#print-modal-title', '#print-date'); });
+            $('#open-add-withdrawal-modal-btn').addEventListener('click', (e) => { e.preventDefault(); openModalAction(app.modals.withdrawal, app.forms.withdrawal, '#withdrawal-modal-title', '#withdrawal-date'); });
             $('#open-add-item-modal-btn').addEventListener('click', () => openModal(app.modals.item));
             $('#settings-btn').addEventListener('click', () => { app.forms.password.reset(); openModal(app.modals.password); });
             $$('.close-modal-btn, .cancel-btn, #confirm-cancel-btn').forEach(btn => btn.addEventListener('click', closeAllModals));
@@ -643,9 +660,9 @@
             $('#show-book-report-btn').addEventListener('click', () => switchView('bookReport'));
             
             app.forms.item.addEventListener('submit', e => { e.preventDefault(); addItem($('#new-item-name').value); });
-            app.forms.print.addEventListener('submit', e => { e.preventDefault(); const d = { id: $('#edit-print-id').value, itemId: $('#item-select').value, date: $('#print-date').value, quantity: parseFloat($('#quantity').value), unitPrice: parseFloat($('#unit-price').value) }; if (!d.itemId) return alert("الرجاء اختيار كتاب."); addOrUpdateOperation(d, 'print'); });
-            app.forms.withdrawal.addEventListener('submit', e => { e.preventDefault(); const d = { id: $('#edit-withdrawal-id').value, date: $('#withdrawal-date').value, amount: parseFloat($('#withdrawal-amount').value), notes: $('#withdrawal-notes').value }; if(!(d.amount > 0)) return alert("الرجاء إدخال مبلغ صحيح."); addOrUpdateOperation(d, 'withdrawal'); });
-            app.forms.password.addEventListener('submit', e => { e.preventDefault(); const o = $('#old-password').value, n = $('#new-password').value, c = $('#confirm-new-password').value; if(o !== getPassword()) return alert("كلمة المرور القديمة غير صحيحة."); if(n.length < 3) return alert("كلمة المرور الجديدة قصيرة جداً."); if(n !== c) return alert("كلمتا المرور الجديدتان غير متطابقتين."); setPassword(n); alert("تم تغيير كلمة المرور بنجاح!"); closeModal(app.modals.password); });
+            app.forms.print.addEventListener('submit', e => { e.preventDefault(); const d = { id: $('#edit-print-id').value, itemId: $('#item-select').value, date: $('#print-date').value, quantity: parseFloat($('#quantity').value), unitPrice: parseFloat($('#unit-price').value) }; if (!d.itemId) return showCustomAlert("خطأ", "الرجاء اختيار كتاب."); addOrUpdateOperation(d, 'print'); });
+            app.forms.withdrawal.addEventListener('submit', e => { e.preventDefault(); const d = { id: $('#edit-withdrawal-id').value, date: $('#withdrawal-date').value, amount: parseFloat($('#withdrawal-amount').value), notes: $('#withdrawal-notes').value }; if(!(d.amount > 0)) return showCustomAlert("خطأ", "الرجاء إدخال مبلغ صحيح."); addOrUpdateOperation(d, 'withdrawal'); });
+            app.forms.password.addEventListener('submit', e => { e.preventDefault(); const o = $('#old-password').value, n = $('#new-password').value, c = $('#confirm-new-password').value; if(o !== getPassword()) return showCustomAlert("خطأ", "كلمة المرور القديمة غير صحيحة."); if(n.length < 3) return showCustomAlert("خطأ", "كلمة المرور الجديدة قصيرة جداً."); if(n !== c) return showCustomAlert("خطأ", "كلمتا المرور الجديدتان غير متطابقتين."); setPassword(n); showCustomAlert("نجاح", "تم تغيير كلمة المرور بنجاح!", "success"); closeModal(app.modals.password); });
             
             $('#transactions-table-body').addEventListener('click', handleTableClick);
             app.dateFilter.addEventListener('change', handleDateFilterChange);
@@ -734,7 +751,7 @@
                         recalculateAllData(); 
                         $('#import-file').value = ''; 
                     });
-                } catch (err) { hideLoader(); alert("خطأ في قراءة الملف: " + err.message); $('#import-file').value = ''; }
+                } catch (err) { hideLoader(); showCustomAlert("خطأ في قراءة الملف", err.message); $('#import-file').value = ''; }
             };
             reader.readAsArrayBuffer(file);
         };
@@ -747,10 +764,11 @@
             oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
             $('#start-date').value = oneMonthAgo.toISOString().split('T')[0];
             recalculateAllData(); 
-            switchView('dashboard'); 
+            switchView('dashboard');
+            handleDateFilterChange();
         };
         setupEventListeners();
     });
     </script>
 </body>
-</html>
+</ht
